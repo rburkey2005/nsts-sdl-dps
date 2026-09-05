@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 #
-# `"linkInfo": "placement"` in a CSECT table: the entry contributes an
-# ADDRESS but not a DEFINITION.
+# `"linkInfo": "placement"` in a CSECT table: the entry supplies an address
+# and no linkage.
 #
-# A CSECT table may deliberately carry a section the configuration does not
-# load -- see fcmcmp's load_not_in_config -- because a configuration can hold
-# a module's ZCON without holding the module.  Such an entry is still placed
-# and its symbols are still DEFINED, so the symbol table lnk101 writes is
-# unchanged; the AP-101S emulators read it.  What it may not do is RESOLVE a
-# relocation, because no module supplied the symbol and the original link left
-# the site alone.
+# A CSECT table carries a section the configuration does not load when a
+# ZCON in this configuration points at a module loaded in another (fcmcmp's
+# load_not_in_config).  Such an entry is placed and its symbols are defined,
+# so the symbol table lnk101 writes is complete for the AP-101S emulators
+# that read it.  Its contents resolve no relocation: no module supplied them
+# and the original link left each site as assembled.
 #
 # Run:  python -m pytest test/srcTest/lnk101/test_placement_only.py
 #  or:  python test/srcTest/lnk101/test_placement_only.py
@@ -57,7 +56,7 @@ class TestPlacementOnly(unittest.TestCase):
         return linker
 
     def _defined(self, linker):
-        # LDs live in their own list, not in `sections` -- see addSection.
+        # addSection keeps LDs in `module.lds`, apart from `sections`.
         names = set()
         for module in linker.modules:
             names.update(s.name.strip() for s in module.sections.values())
@@ -74,8 +73,8 @@ class TestPlacementOnly(unittest.TestCase):
         self.assertNotIn("TFCMG9A", linker.placementOnlySymbols)
 
     def test_the_symbol_table_is_unchanged(self):
-        # The whole point: a placement-only entry is still placed and its
-        # contents still defined, so nothing disappears from the symbol table.
+        # A placement-only entry is placed and its contents are defined, so
+        # the symbol table holds every name the table lists.
         linker = self._load(TABLE, ["TFCMPFD1"])
         defined = self._defined(linker)
         self.assertIn("#DDPLLIG", defined)
