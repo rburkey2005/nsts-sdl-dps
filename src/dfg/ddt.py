@@ -364,16 +364,20 @@ def _content_draw(ops, j, gi, char_inits):
         fw = w[1] if len(w) > 1 and isinstance(w[1], int) else None
         if desc is None or fw is None:
             return None
-        # A HEX-prefixed VPARM displays the masked bit field as hex chars:
-        # DCI#CON CASE 3 converts nbits/4 chars and emits NO sign FCW, so
-        # the budget is just the char-pairs: ceil(ceil(nbits/4)/2) — UNLESS
-        # ZEROES=YES (fmtword bit 0x40), which budgets the plain VPARM
-        # formula instead.  Plain CONV=H *without* a HEX prefix keeps the
-        # standard formula.
+        # A HEX-prefixed VPARM (DCI#CON CASE 3 displays the masked bit
+        # field as hex chars) budgets the plain formula below on the
+        # format's digit count, with one exception: a single byte,
+        # HEX nbits 8 with ZEROES=NO, budgets one FCW.  Measured: (9,8)
+        # FMT=3.0 budgets 1 (CS0710 in flight S2, and the OI30 listings);
+        # (1,16) with FMT 2.0/3.0/4.0 budgets 2/2/3, (2,7) FMT=3.0 budgets
+        # 2 and (9,3) FMT=2.0 budgets 2 (flight CS2050 and CS2120, read
+        # off the DASS).  ZEROES=YES (fmtword bit 0x40) budgets the plain
+        # formula at every width.  Plain CONV=H without a HEX prefix keeps
+        # the standard formula.
         prev = ops[j - 1] if j > gi + 1 else None
-        if prev is not None and prev.kind == "HEX" and not (fw & 0x40):
-            nchars = (prev.nbits + 3) // 4
-            return (nchars + 1) // 2
+        if prev is not None and prev.kind == "HEX" and not (fw & 0x40) \
+                and prev.nbits == 8:
+            return 1
         digits = fw >> 12; dec = (fw >> 8) & 0xF
         sign = 1 if (fw & 0x10) else 0
         code = ((fw >> 2) & 0xF) + 1              # BLDFCW sign indicator (1..7)
@@ -414,8 +418,10 @@ def _content_draw(ops, j, gi, char_inits):
             #   * CONV=S scaled: 4.0 = formula+1, 6.0 = formula+2
             #     (measured); odd digits stay formula.  Other even
             #     formats (2.0/8.0) are unknown: refuse.
-            #   * CONV=I plain integer draws NO sign budget.  The
-            #     descriptor maps I and S both to code 2, so the deck
+            #   * CONV=I plain integer draws NO sign budget at dec==0,
+            #     and budgets the sign at dec==1: 6.1 budgets 4 (flight
+            #     CS2120, read off the DASS), where CONV=S 6.1 budgets 3.
+            #     The descriptor maps I and S both to code 2, so the deck
             #     letter comes from the op's inherited `conv`;
             #     unresolvable -> refuse.
             if code == 2:
@@ -432,6 +438,12 @@ def _content_draw(ops, j, gi, char_inits):
                         else:
                             sign = 1
                     elif cl != "I":
+                        return None
+                elif cv == 2 and dec == 1:
+                    cl = op.conv
+                    if cl == "I":
+                        sign = 1
+                    elif cl != "S":
                         return None
             draw = (digits + sign + 1) // 2 + (dec + 1) // 3
             if (desc & 0xF) == 1 and (desc >> 4) & 0xF == 3 and digits >= 10:

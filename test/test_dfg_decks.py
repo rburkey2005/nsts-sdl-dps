@@ -126,6 +126,38 @@ def diagnostics_regression():
     return problems
 
 
+def rate_budget_regression():
+    """The rate-count budgets measured outside the delivered deck corpus:
+    flight CS2050 and CS2120 (STS-134, read off the DASS) regenerate word
+    for word from their decks only with these draws.  Each case is one
+    rate group holding the structure under test, against the budget the
+    flight rate-count word implies; CS0710 and the OI30 listings fix the
+    8-bit HEX case and the 6.1 CONV=S case they are checked beside."""
+    from dfg import ddt
+    from dfg.deck import _split_directives
+
+    cases = [
+        ("HEX=(2,7),VPARM=(NAME=V,ATTR=H,FMT=3.0,CONV=H,ZEROES=NO,SIGN=N)", 2),
+        ("HEX=(9,3),VPARM=(NAME=V,ATTR=H,FMT=2.0,CONV=H,ZEROES=NO,SIGN=N)", 2),
+        ("HEX=(1,16),VPARM=(NAME=V,ATTR=H,FMT=4.0,CONV=H,ZEROES=NO,SIGN=N)", 3),
+        ("HEX=(1,16),VPARM=(NAME=V,ATTR=H,FMT=2.0,CONV=H,ZEROES=NO,SIGN=N)", 2),
+        ("HEX=(9,8),VPARM=(NAME=V,ATTR=H,FMT=3.0,CONV=H,ZEROES=NO,SIGN=N)", 1),
+        ("HEX=(9,8),VPARM=(NAME=V,ATTR=H,FMT=3.0,CONV=H,ZEROES=YES,SIGN=N)", 2),
+        ("VPARM=(NAME=V,ATTR=S,FMT=6.1,CONV=I,ZEROES=NO,SIGN=P)", 4),
+        ("VPARM=(NAME=V,ATTR=S,FMT=6.1,CONV=S,ZEROES=NO,SIGN=P)", 3),
+    ]
+    problems = []
+    for text, want in cases:
+        ds = _split_directives("VARY,RATE=2,%s,END" % text)
+        ops = ddt.build_ddt(ds, None)
+        starts = ddt._group_starts(ops)
+        got, blocker = ddt._rate_count(ops, 0, len(ops), starts, {})
+        if got != want:
+            problems.append("rate budget: %s -> %s, measured %d"
+                            % (text, got if blocker is None else "refused", want))
+    return problems
+
+
 def amt_regression():
     """AMT-mode (CDAPnn moding-table) generation regression, self-contained
     on checked-in fixtures (test/data/amt): OI34 input decks CDAP04 (AMTG,
@@ -199,7 +231,7 @@ def amt_regression():
 
 
 def main():
-    amt_problems = amt_regression()
+    amt_problems = amt_regression() + rate_budget_regression()
     if not os.path.isdir(ROOT):
         if amt_problems:
             print("\n%d problem(s):" % len(amt_problems))
