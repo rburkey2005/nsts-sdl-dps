@@ -1998,14 +1998,14 @@ def integration_tests():
     # the byte checks on a clean run (the assembles check above is the
     # regression signal in that case).
     attext = atlst.read_text(errors="replace") if atlst.exists() else ""
-    # LDM's R1 is a FIXED part of the opcode (=0, per PASS MAFGEN: LDM->68xx),
-    # so LDM@# encodes 68 regardless of the source R1; only LXA@ (which has a
-    # real x/R1 field) carries R1=1.  The @ test here is about the AM=1 ia/i
-    # mode bits in the second halfword, not R1.
+    # A coded R1 on LDM lands in bits 5-7, as the flight assembler put it
+    # (OI301700 BILDNEW5 listing: `LDM@# R1,EXTTEMP` = 69FC 1948); see
+    # instrdefs.implied_r1.  The @ test here is about the AM=1 ia/i mode
+    # bits in the second halfword.
     for label, want, desc in [
-        ("L0", "68FC 1800", "LDM@# R1,PTR bare -> AM=1, ia=1 i=1, x2=0 (R1 fixed 0)"),
+        ("L0", "69FC 1800", "LDM@# R1,PTR bare -> AM=1, ia=1 i=1, x2=0, R1=1"),
         ("L1", "41FC 1000", "LXA@ R1,PTR bare -> AM=1, ia=1 i=0"),
-        ("L2", "68FC 7800", "LDM@# R1,PTR(R3) indexed -> AM=1, x2=3 (R1 fixed 0)"),
+        ("L2", "69FC 7800", "LDM@# R1,PTR(R3) indexed -> AM=1, x2=3, R1=1"),
     ]:
       line = next((l for l in attext.splitlines()
                    if re.search(r"\d+ " + label + r"\s", l)), "")

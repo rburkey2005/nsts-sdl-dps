@@ -103,9 +103,20 @@ def implied_r1(name):
   """
   base = base_op(name)
   d = CPU.by_name.get(base)
-  if d is None or d.nbits != 16 or "x" in d.fields:
+  if d is None or d.nbits != 16:
     return None
   if cpu_type(base) not in ("SRS", "RS"):
+    return None
+  if "x" in d.fields:
+    # **QUIRK/POO DEVIATION**
+    # LDM and STDM.  The POO (sect.9.13, 9.15) fixes bits 5-7 at zero and
+    # the operand formats carry no R1; the flight assembler encoded a coded
+    # R1 there.  The OI301700 build listing of BILDNEW5 assembles `LDM
+    # R3,EXTDATA3` as 6BF8 and `STDM R1,EXTTEMP` as 91F8.  The descriptor
+    # makes the bits a field, so a coded register lands where the flight
+    # listing has it and an omitted one encodes zero.
+    if not any("R1" in f or "M1" in f for f in CPU_DEFS[base].get("fmt", ())):
+      return 0
     return None
   return (d.val >> 8) & 0b111
 

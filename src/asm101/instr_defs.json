@@ -1073,7 +1073,7 @@
       "addrWidth": "HALFWORD"
     },
     "LDM": {
-      "d": "0110100011111abb/X",
+      "d": "01101xxx11111abb/X",
       "fmt": [
         "LDM D2(B2)",
         "LDM D2(X2,B2)"
@@ -1111,7 +1111,7 @@
       "name": "Store Extended Address"
     },
     "STDM": {
-      "d": "1001000011111abb/X",
+      "d": "10010xxx11111abb/X",
       "fmt": [
         "STDM D2(B2)",
         "STDM D2(X2,B2)"
